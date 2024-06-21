@@ -18,6 +18,7 @@ package com.alibaba.csp.sentinel.adapter.spring.webflux;
 import java.util.Optional;
 
 import com.alibaba.csp.sentinel.EntryType;
+import com.alibaba.csp.sentinel.ResourceTypeConstants;
 import com.alibaba.csp.sentinel.adapter.reactor.ContextConfig;
 import com.alibaba.csp.sentinel.adapter.reactor.EntryConfig;
 import com.alibaba.csp.sentinel.adapter.reactor.SentinelReactorTransformer;
@@ -35,6 +36,8 @@ import reactor.core.publisher.Mono;
  */
 public class SentinelWebFluxFilter implements WebFilter {
 
+    public static final String SENTINEL_SPRING_WEBFLUX_CONTEXT_NAME = "sentinel_spring_webflux_context";
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         // Maybe we can get the URL pattern elsewhere via:
@@ -45,7 +48,8 @@ public class SentinelWebFluxFilter implements WebFilter {
         if (StringUtil.isEmpty(finalPath)) {
             return chain.filter(exchange);
         }
-        return chain.filter(exchange).transform(buildSentinelTransformer(exchange, finalPath));
+        return chain.filter(exchange)
+            .transform(buildSentinelTransformer(exchange, finalPath));
     }
 
     private SentinelReactorTransformer<Void> buildSentinelTransformer(ServerWebExchange exchange, String finalPath) {
@@ -53,7 +57,12 @@ public class SentinelWebFluxFilter implements WebFilter {
             .map(f -> f.apply(exchange))
             .orElse(EMPTY_ORIGIN);
 
-        return new SentinelReactorTransformer<>(new EntryConfig(finalPath, EntryType.IN, new ContextConfig(finalPath, origin)));
+        return new SentinelReactorTransformer<>(new EntryConfig(finalPath, ResourceTypeConstants.COMMON_WEB,
+            EntryType.IN, new ContextConfig(getContextName(exchange), origin)));
+    }
+
+    protected String getContextName(ServerWebExchange exchange){
+        return SENTINEL_SPRING_WEBFLUX_CONTEXT_NAME;
     }
 
     private static final String EMPTY_ORIGIN = "";
